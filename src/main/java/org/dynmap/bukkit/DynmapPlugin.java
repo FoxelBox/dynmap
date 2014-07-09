@@ -98,11 +98,9 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
     private PermissionProvider permissions;
     private String version;
     public SnapshotCache sscache;
-    private boolean has_spout = false;
     public PlayerList playerList;
     private MapManager mapManager;
     public static DynmapPlugin plugin;
-    public SpoutPluginBlocks spb;
     public PluginManager pm;
     private Metrics metrics;
     private BukkitEnableCoreCallback enabCoreCB = new BukkitEnableCoreCallback();
@@ -164,27 +162,10 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
     private class BukkitEnableCoreCallback extends DynmapCore.EnableCoreCallbacks {
         @Override
         public void configurationLoaded() {
-            /* Check for Spout */
-            if(detectSpout()) {
-                if(core.configuration.getBoolean("spout/enabled", true)) {
-                    has_spout = true;
-                    Log.info("Detected Spout");
-                    if(spb == null) {
-                        spb = new SpoutPluginBlocks(DynmapPlugin.this);
-                    }
-                    modsused.add("SpoutPlugin");
-                }
-                else {
-                    Log.info("Detected Spout - Support Disabled");
-                }
-            }
-            if(!has_spout) {    /* If not, clean up old spout texture, if needed */
-                File st = new File(core.getDataFolder(), "renderdata/spout-texture.txt");
-                if(st.exists())
-                    st.delete();
-            }
-            
-        }
+			File st = new File(core.getDataFolder(), "renderdata/spout-texture.txt");
+			if (st.exists())
+				st.delete();
+		}
     }
     
     private static class BlockToCheck {
@@ -827,7 +808,6 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
                 @EventHandler(priority=EventPriority.MONITOR, ignoreCancelled=true)
                 public void onPluginEnabled(PluginEnableEvent evt) {
                     if (!readyToEnable()) {
-                        spb.markPluginEnabled(evt.getPlugin());
                         if (readyToEnable()) { /* If we;re ready now, finish enable */
                             doEnable();   /* Finish enable */
                         }
@@ -852,18 +832,10 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
     }
     
     private boolean readyToEnable() {
-        if (spb != null) {
-            return spb.isReady();
-        }
         return true;
     }
     
     private void doEnable() {
-        /* Prep spout support, if needed */
-        if(spb != null) {
-            spb.processSpoutBlocks(this, core);
-        }
-        
         /* Enable core */
         if(!core.enableCore(enabCoreCB)) {
             this.setEnabled(false);
@@ -1500,18 +1472,6 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
         }
     }
 
-    private boolean detectSpout() {
-        Plugin p = this.getServer().getPluginManager().getPlugin("Spout");
-        if(p != null) {
-            return p.isEnabled();
-        }
-        return false;
-    }
-    
-    public boolean hasSpout() {
-        return has_spout;
-    }
-
     @Override
     public void assertPlayerInvisibility(String player, boolean is_invisible,
             String plugin_id) {
@@ -1565,8 +1525,6 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
             features.addPlotter(new Metrics.Plotter("Spout") {
                 @Override
                 public int getValue() {
-                    if(plugin.has_spout)
-                        return 1;
                     return 0;
                 }
             });
