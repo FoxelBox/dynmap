@@ -80,13 +80,8 @@ import org.dynmap.MapManager;
 import org.dynmap.MapType;
 import org.dynmap.PlayerList;
 import org.dynmap.bukkit.permissions.BukkitPermissions;
-import org.dynmap.bukkit.permissions.NijikokunPermissions;
 import org.dynmap.bukkit.permissions.OpPermissions;
-import org.dynmap.bukkit.permissions.PEXPermissions;
-import org.dynmap.bukkit.permissions.PermBukkitPermissions;
-import org.dynmap.bukkit.permissions.GroupManagerPermissions;
 import org.dynmap.bukkit.permissions.PermissionProvider;
-import org.dynmap.bukkit.permissions.bPermPermissions;
 import org.dynmap.common.BiomeMap;
 import org.dynmap.common.DynmapCommandSender;
 import org.dynmap.common.DynmapPlayer;
@@ -636,7 +631,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
         @Override
         public int getHealth() {
             if(player != null)
-                return player.getHealth();
+                return (int)player.getHealth();
             else
                 return 0;
         }
@@ -788,15 +783,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
             perdefs.put(p.getName(), p.getDefault() == PermissionDefault.TRUE);
         }
         
-        permissions = PEXPermissions.create(getServer(), "dynmap");
-        if (permissions == null)
-            permissions = bPermPermissions.create(getServer(), "dynmap", perdefs);
-        if (permissions == null)
-            permissions = PermBukkitPermissions.create(getServer(), "dynmap", perdefs);
-        if (permissions == null)
-            permissions = NijikokunPermissions.create(getServer(), "dynmap");
-        if (permissions == null)
-            permissions = GroupManagerPermissions.create(getServer(), "dynmap");
+		permissions = null;
         if (permissions == null)
             permissions = BukkitPermissions.create("dynmap", perdefs);
         if (permissions == null)

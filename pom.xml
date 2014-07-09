@@ -115,21 +115,15 @@
 	</repositories>
 	<dependencies>
 		<dependency>
-			<groupId>com.nijikokun.bukkit</groupId>
-			<artifactId>Permissions</artifactId>
-			<version>3.1.6</version>
-		</dependency>
-		<dependency>
 			<groupId>org.bukkit</groupId>
 			<artifactId>bukkit</artifactId>
-			<version>1.4.7-R1.0</version>
+			<version>1.7.9-R0.2</version>
 		</dependency>
 		<dependency>
 			<groupId>us.dynmap</groupId>
 			<artifactId>dynmap-api</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-
 		<dependency>
 			<groupId>us.dynmap</groupId>
 			<artifactId>DynmapCore</artifactId>
@@ -140,26 +134,6 @@
 			<artifactId>spoutpluginapi</artifactId>
 			<version>dev-SNAPSHOT</version>
 			<scope>compile</scope>
-		</dependency>
-		<dependency>
-			<groupId>ru.tehkode</groupId>
-			<artifactId>PermissionsEx</artifactId>
-			<version>1.19.1</version>
-		</dependency>
-		<dependency>
-			<groupId>de.bananaco</groupId>
-			<artifactId>bPermissions</artifactId>
-			<version>2.9.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.platymuus.bukkit.permissions</groupId>
-			<artifactId>PermissionsBukkit</artifactId>
-			<version>1.6</version>
-		</dependency>
-		<dependency>
-			<groupId>org.anjocaido</groupId>
-			<artifactId>EssentialsGroupManager</artifactId>
-			<version>2.10.1</version>
 		</dependency>
 	</dependencies>
 	<version>2.0.0-SNAPSHOT</version>
