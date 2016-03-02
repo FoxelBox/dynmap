@@ -3,13 +3,17 @@ package org.dynmap.bukkit;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.ChunkSnapshot;
 import org.bukkit.Server;
 import org.bukkit.World;
+import org.bukkit.entity.Player;
 import org.dynmap.Log;
 
 /**
@@ -19,7 +23,8 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
     private String obc_package; // Package used for org.bukkit.craftbukkit
     protected String nms_package; // Package used for net.minecraft.server
     private boolean failed;
-    private static final Object[] nullargs = new Object[0];
+    protected static final Object[] nullargs = new Object[0];
+    protected static final Class[] nulltypes = new Class[0];
     private static final Map nullmap = Collections.emptyMap();
     
     /** CraftChunkSnapshot */
@@ -49,7 +54,6 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
     protected Method lhs_containskey;
     /** n.m.s.Chunk */
     protected Class<?> nmschunk;
-    protected Method nmsc_removeentities;
     protected Field nmsc_tileentities;
     protected Field nmsc_inhabitedticks;
     /** nbt classes */
@@ -79,6 +83,17 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
     protected Field nmst_x;
     protected Field nmst_y;
     protected Field nmst_z;
+    protected Method nmst_getposition;
+    /** BlockPosition */
+    protected Class<?> nms_blockposition;
+    protected Method nmsbp_getx;
+    protected Method nmsbp_gety;
+    protected Method nmsbp_getz;
+    
+    /** Server */
+    protected Method server_getonlineplayers;
+    /** Player */
+    protected Method player_gethealth;
 
     BukkitVersionHelperGeneric() {
         failed = false;
@@ -99,6 +114,12 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
         /* CraftChunk */
         craftchunk = getOBCClass("org.bukkit.craftbukkit.CraftChunk");
         cc_gethandle = getMethod(craftchunk, new String[] { "getHandle" }, new Class[0]);
+        
+        /** Server */
+        server_getonlineplayers = getMethod(Server.class, new String[] { "getOnlinePlayers" }, new Class[0]);
+        /** Player */
+        player_gethealth = getMethod(Player.class, new String[] { "getHealth" }, new Class[0]);
+        
         /* Get NMS classes and fields */
         if(!failed)
             loadNMS();
@@ -122,7 +143,11 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
     protected Class<?> getNMSClass(String classname) {
         return getClassByName(classname, "net.minecraft.server", nms_package, false);
     }
-    
+
+    protected Class<?> getNMSClassNoFail(String classname) {
+        return getClassByName(classname, "net.minecraft.server", nms_package, true);
+    }
+
     protected Class<?> getClassByName(String classname, String base, String mapping, boolean nofail) {
         String n = classname;
         int idx = classname.indexOf(base);
@@ -175,7 +200,19 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
     /**
      * Get private field
      */
+    protected Field getPrivateFieldNoFail(Class<?> cls, String[] ids, Class<?> type) {
+        return getPrivateField(cls, ids, type, true);
+    }
+    /**
+     * Get private field
+     */
     protected Field getPrivateField(Class<?> cls, String[] ids, Class<?> type) {
+        return getPrivateField(cls, ids, type, false);
+    }
+    /**
+     * Get private field
+     */
+    protected Field getPrivateField(Class<?> cls, String[] ids, Class<?> type, boolean nofail) {
         if((cls == null) || (type == null)) return null;
         for(String id : ids) {
             try {
@@ -187,8 +224,10 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
             } catch (NoSuchFieldException nsfx) {
             }
         }
-        Log.severe("Unable to find field " + ids[0] + " for " + cls.getName());
-        failed = true;
+        if (!nofail) {
+            Log.severe("Unable to find field " + ids[0] + " for " + cls.getName());
+            failed = true;
+        }
         return null;
     }
     protected Object getFieldValue(Object obj, Field field, Object def) {
@@ -217,7 +256,18 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
         failed = true;
         return null;
     }
-    private Object callMethod(Object obj, Method meth, Object[] args, Object def) {
+    protected Method getMethodNoFail(Class<?> cls, String[] ids, Class[] args) {
+        if(cls == null) return null;
+        for(String id : ids) {
+            try {
+                return cls.getMethod(id, args);
+            } catch (SecurityException e) {
+            } catch (NoSuchMethodException e) {
+            }
+        }
+        return null;
+    }
+    protected Object callMethod(Object obj, Method meth, Object[] args, Object def) {
         if((obj == null) || (meth == null)) {
             return def;
         }
@@ -255,13 +305,13 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
     }
 
     /* Get net.minecraft.server.world for given world */
-    public Object getNMSWorld(World w) {
+    protected Object getNMSWorld(World w) {
         return callMethod(w, cw_gethandle, nullargs, null);
     }
 
     /* Get unload queue for given NMS world */
-    public Object getUnloadQueue(Object nmsworld) {
-        Object cps = getFieldValue(nmsworld, nmsw_chunkproviderserver, null); // Get chunkproviderserver
+    public Object getUnloadQueue(World world) {
+        Object cps = getFieldValue(getNMSWorld(world), nmsw_chunkproviderserver, null); // Get chunkproviderserver
         if(cps != null) {
             return getFieldValue(cps, cps_unloadqueue, null);
         }
@@ -279,19 +329,13 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
     public Object[] getBiomeBaseFromSnapshot(ChunkSnapshot css) {
         return (Object[])getFieldValue(css, ccss_biome, null);
     }
-    public boolean isCraftChunkSnapshot(ChunkSnapshot css) {
-        if(craftchunksnapshot != null) {
-            return craftchunksnapshot.isAssignableFrom(css.getClass());
-        }
-        return false;
-    }
-    /** Remove entities from given chunk */
-    public void removeEntitiesFromChunk(Chunk c) {
-        Object omsc = callMethod(c, cc_gethandle, nullargs, null);
-        if(omsc != null) {
-            callMethod(omsc, nmsc_removeentities, nullargs, null);
-        }
-    }
+//    public boolean isCraftChunkSnapshot(ChunkSnapshot css) {
+//        if(craftchunksnapshot != null) {
+//            return craftchunksnapshot.isAssignableFrom(css.getClass());
+//        }
+//        return false;
+//    }
+
     /**
      * Get inhabited ticks count from chunk
      */
@@ -319,19 +363,37 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
      * Get X coordinate of tile entity
      */
     public int getTileEntityX(Object te) {
-        return (Integer)getFieldValue(te, nmst_x, 0);
+        if (nmst_getposition == null) {
+            return (Integer)getFieldValue(te, nmst_x, 0);
+        }
+        else {
+            Object pos = callMethod(te, nmst_getposition, nullargs, null);
+            return (Integer) callMethod(pos, nmsbp_getx, nullargs, null);
+        }
     }
     /**
      * Get Y coordinate of tile entity
      */
     public int getTileEntityY(Object te) {
-        return (Integer)getFieldValue(te, nmst_y, 0);
+        if (nmst_getposition == null) {
+            return (Integer)getFieldValue(te, nmst_y, 0);
+        }
+        else {
+            Object pos = callMethod(te, nmst_getposition, nullargs, null);
+            return (Integer) callMethod(pos, nmsbp_gety, nullargs, null);
+        }
     }
     /**
      * Get Z coordinate of tile entity
      */
     public int getTileEntityZ(Object te) {
-        return (Integer)getFieldValue(te, nmst_z, 0);
+        if (nmst_getposition == null) {
+            return (Integer)getFieldValue(te, nmst_z, 0);
+        }
+        else {
+            Object pos = callMethod(te, nmst_getposition, nullargs, null);
+            return (Integer) callMethod(pos, nmsbp_getz, nullargs, null);
+        }
     }
     /**
      * Read tile entity NBT
@@ -385,4 +447,32 @@ public abstract class BukkitVersionHelperGeneric extends BukkitVersionHelper {
         }
         return null;
     }
+    /**
+     * Get list of online players
+     */
+    public Player[] getOnlinePlayers() {
+        Object players = callMethod(Bukkit.getServer(), server_getonlineplayers, nullargs, null);
+        if (players instanceof Player[]) {  /* Pre 1.7.10 */
+            return (Player[]) players;
+        }
+        else {
+            @SuppressWarnings("unchecked")
+            Collection<? extends Player> p = (Collection<? extends Player>) players;
+            return p.toArray(new Player[0]);
+        }
+    }
+    /**
+     * Get player health
+     */
+    @Override
+    public double getHealth(Player p) {
+        Object health = callMethod(p, player_gethealth, nullargs, null);
+        if (health instanceof Integer) {
+            return (Integer) health;
+        }
+        else {
+            return ((Double) health).intValue();
+        }
+    }
+
 }

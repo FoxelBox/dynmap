@@ -56,9 +56,9 @@ import java.util.logging.Level;
  * <p> The metrics class obtains data about a plugin and submits statistics about it to the metrics backend. </p> <p>
  * Public methods provided by this class: </p>
  * <code>
- * Graph createGraph(String name); <br/>
- * void addCustomData(BukkitMetrics.Plotter plotter); <br/>
- * void start(); <br/>
+ * Graph createGraph(String name); <br>
+ * void addCustomData(BukkitMetrics.Plotter plotter); <br>
+ * void start(); <br>
  * </code>
  */
 public class Metrics {
@@ -121,6 +121,8 @@ public class Metrics {
      */
     private volatile BukkitTask task = null;
 
+    private BukkitVersionHelper helper;
+    
     public Metrics(final Plugin plugin) throws IOException {
         if (plugin == null) {
             throw new IllegalArgumentException("Plugin cannot be null");
@@ -146,6 +148,8 @@ public class Metrics {
         // Load the guid then
         guid = configuration.getString("guid");
         debug = configuration.getBoolean("debug", false);
+        
+        helper = BukkitVersionHelper.getHelper();
     }
 
     /**
@@ -359,7 +363,7 @@ public class Metrics {
         boolean onlineMode = Bukkit.getServer().getOnlineMode(); // TRUE if online mode is enabled
         String pluginVersion = description.getVersion();
         String serverVersion = Bukkit.getVersion();
-        int playersOnline = Bukkit.getServer().getOnlinePlayers().length;
+        int playersOnline = helper.getOnlinePlayers().length;
 
         // END server software specific section -- all code below does not use any code outside of this class / Java
 

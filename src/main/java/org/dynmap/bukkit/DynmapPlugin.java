@@ -2,11 +2,9 @@ package org.dynmap.bukkit;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -91,6 +89,7 @@ import org.dynmap.hdmap.HDMap;
 import org.dynmap.markers.MarkerAPI;
 import org.dynmap.modsupport.ModSupportImpl;
 import org.dynmap.utils.MapChunkCache;
+import org.dynmap.utils.Polygon;
 import org.dynmap.utils.VisibilityLimit;
 
 public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
@@ -162,10 +161,11 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
     private class BukkitEnableCoreCallback extends DynmapCore.EnableCoreCallbacks {
         @Override
         public void configurationLoaded() {
-			File st = new File(core.getDataFolder(), "renderdata/spout-texture.txt");
-			if (st.exists())
-				st.delete();
-		}
+            File st = new File(core.getDataFolder(), "renderdata/spout-texture.txt");
+            if(st.exists()) {
+                st.delete();
+            }
+        }
     }
     
     private static class BlockToCheck {
@@ -210,7 +210,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
         }
         @Override
         public DynmapPlayer[] getOnlinePlayers() {
-            Player[] players = getServer().getOnlinePlayers();
+            Player[] players = helper.getOnlinePlayers();
             DynmapPlayer[] dplay = new DynmapPlayer[players.length];
             for(int i = 0; i < players.length; i++)
                 dplay[i] = new BukkitPlayer(players[i]);
@@ -252,6 +252,11 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
                 return true;
             return false;
         }
+        @Override
+        public boolean isServerThread() {
+            return Bukkit.getServer().isPrimaryThread();
+        }
+
         @Override
         public String stripChatColor(String s) {
             return ChatColor.stripColor(s);
@@ -483,7 +488,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
         }
         @Override
         public int getCurrentPlayers() {
-            return getServer().getOnlinePlayers().length;
+            return helper.getOnlinePlayers().length;
         }
         @Override
         public boolean isModLoaded(String name) {
@@ -610,9 +615,9 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
             return false;
         }
         @Override
-        public int getHealth() {
+        public double getHealth() {
             if(player != null)
-                return (int)player.getHealth();
+                return helper.getHealth(player);
             else
                 return 0;
         }
@@ -706,25 +711,32 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
         }
     }
     
-    public void loadExtraBiomes() {
+    public void loadExtraBiomes(String mcver) {
         int cnt = 0;
         
+        BiomeMap.loadWellKnownByVersion(mcver);
         /* Find array of biomes in biomebase */
         Object[] biomelist = helper.getBiomeBaseList();
-        /* Loop through list, starting afer well known biomes */
-        for(int i = BiomeMap.LAST_WELL_KNOWN+1; i < biomelist.length; i++) {
+        /* Loop through list, skipping well known biomes */
+        for(int i = 0; i < biomelist.length; i++) {
             Object bb = biomelist[i];
             if(bb != null) {
-                String id =  helper.getBiomeBaseIDString(bb);
-                if(id == null) {
-                   id = "BIOME_" + i;
-                }
                 float tmp = helper.getBiomeBaseTemperature(bb);
                 float hum = helper.getBiomeBaseHumidity(bb);
-
-                BiomeMap m = new BiomeMap(i, id, tmp, hum);
-                Log.verboseinfo("Add custom biome [" + m.toString() + "] (" + i + ")");
-                cnt++;
+                BiomeMap bmap = BiomeMap.byBiomeID(i);
+                if (bmap.isDefault()) {
+                    String id =  helper.getBiomeBaseIDString(bb);
+                    if(id == null) {
+                        id = "BIOME_" + i;
+                    }
+                    BiomeMap m = new BiomeMap(i, id, tmp, hum);
+                    Log.verboseinfo("Add custom biome [" + m.toString() + "] (" + i + ")");
+                    cnt++;
+                }
+                else {
+                    bmap.setTemperature(tmp);
+                    bmap.setRainfall(hum);
+                }
             }
         }
         if(cnt > 0) {
@@ -751,8 +763,18 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
         PluginDescriptionFile pdfFile = this.getDescription();
         version = pdfFile.getVersion();
 
+        /* Get MC version */
+        String bukkitver = getServer().getVersion();
+        String mcver = "1.0.0";
+        int idx = bukkitver.indexOf("(MC: ");
+        if(idx > 0) {
+            mcver = bukkitver.substring(idx+5);
+            idx = mcver.indexOf(")");
+            if(idx > 0) mcver = mcver.substring(0, idx);
+        }
+
         /* Load extra biomes, if any */
-        loadExtraBiomes();
+        loadExtraBiomes(mcver);
              
         /* Set up player login/quit event handler */
         registerPlayerLoginListener();
@@ -773,17 +795,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
         File dataDirectory = this.getDataFolder();
         if(dataDirectory.exists() == false)
             dataDirectory.mkdirs();
- 
-        /* Get MC version */
-        String bukkitver = getServer().getVersion();
-        String mcver = "1.0.0";
-        int idx = bukkitver.indexOf("(MC: ");
-        if(idx > 0) {
-            mcver = bukkitver.substring(idx+5);
-            idx = mcver.indexOf(")");
-            if(idx > 0) mcver = mcver.substring(0, idx);
-        }
-        
+         
         /* Instantiate core */
         if(core == null)
             core = new DynmapCore();
@@ -931,11 +943,13 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
     @Override
     public final int triggerRenderOfVolume(String wid, int minx, int miny, int minz,
             int maxx, int maxy, int maxz) {
+    	sscache.invalidateSnapshot(wid, minx, miny, minz, maxx, maxy, maxz);
         return core.triggerRenderOfVolume(wid, minx, miny, minz, maxx, maxy, maxz);
     }
 
     @Override
     public final int triggerRenderOfBlock(String wid, int x, int y, int z) {
+    	sscache.invalidateSnapshot(wid, x, y, z);
         return core.triggerRenderOfBlock(wid, x, y, z);
     }
 
@@ -1522,12 +1536,7 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
                     return 0;
                 }
             });
-            features.addPlotter(new Metrics.Plotter("Spout") {
-                @Override
-                public int getValue() {
-                    return 0;
-                }
-            });
+
             features.addPlotter(new Metrics.Plotter("Login Security") {
                 @Override
                 public int getValue() {
@@ -1600,5 +1609,9 @@ public class DynmapPlugin extends JavaPlugin implements DynmapAPI {
     public void processSignChange(int blkid, String world, int x, int y, int z,
             String[] lines, String playerid) {
         core.processSignChange(blkid, world, x, y, z, lines, playerid);
+    }
+    
+    Polygon getWorldBorder(World w) {
+        return helper.getWorldBorder(w);
     }
 }

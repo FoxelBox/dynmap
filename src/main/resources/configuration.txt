@@ -15,7 +15,7 @@
 #   The definitions of these templates are in normal-hi_boost_xhi.txt, nether-hi_boost_xhi.txt, and the_end-hi_boost_xhi.txt
 deftemplatesuffix: hires
 
-# Map storage scheme: only uncommoent one 'type' value
+# Map storage scheme: only uncomment one 'type' value
 #  filetree: classic and default scheme: tree of files, with all map data under the directory indicated by 'tilespath' setting
 #  sqlite: single SQLite database file (this can get VERY BIG), located at 'dbfile' setting (default is file dynmap.db in data directory)
 #  mysql: MySQL database, at hostname:port in database, accessed via userid with password
@@ -25,13 +25,14 @@ storage:
   # SQLite db for map storage (uses dbfile as storage location)
   #type: sqlite
   #dbfile: dynmap.db
-  # MySQL DB for map storage (at 'hostname':'port' in database 'database' using user 'userid' and password 'password'
+  # MySQL DB for map storage (at 'hostname':'port' in database 'database' using user 'userid' password 'password' and table prefix 'prefix'
   #type: mysql
   #hostname: localhost
   #port: 3306
   #database: dynmap
   #userid: dynmap
   #password: dynmap
+  #prefix: ""
   
 components:
   - class: org.dynmap.ClientConfigurationComponent
@@ -124,6 +125,8 @@ components:
     spawnbedhidebydefault: true
     spawnbedminzoom: 0
     spawnbedformat: "%name%'s bed"
+    # (optional) show world border (vanilla 1.8+)
+    showworldborder: true
     
   - class: org.dynmap.ClientComponent
     type: chat
@@ -273,7 +276,7 @@ custom-colors-support: true
 #refreshskins: false
 
 # Customize URL used for fetching player skins (%player% is macro for name)
-skin-url: "http://s3.amazonaws.com/MinecraftSkins/%player%.png"
+skin-url: "http://skins.minecraft.net/MinecraftSkins/%player%.png"
 
 # Control behavior for new (1.0+) compass orientation (sunrise moved 90 degrees: east is now what used to be south)
 #   default is 'newrose' (preserve pre-1.0 maps, rotate rose)
@@ -412,6 +415,9 @@ persist-ids-by-ip: true
 
 # If true, map text to cyrillic
 cyrillic-support: false
+
+# If true, coordinates will be rounded
+round-coordinates: true
 
 # Messages to customize
 msg:
